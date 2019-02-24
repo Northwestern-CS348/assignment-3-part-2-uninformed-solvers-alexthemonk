@@ -6,7 +6,7 @@ class TowerOfHanoiGame(GameMaster):
 
     def __init__(self):
         super().__init__()
-        
+
     def produceMovableQuery(self):
         """
         See overridden parent class method for more information.
@@ -34,7 +34,25 @@ class TowerOfHanoiGame(GameMaster):
             A Tuple of Tuples that represent the game state
         """
         ### student code goes here
-        pass
+        state = []
+        # initialize a list to store all states for easier operation
+        # cast back to tuple later
+        peg_query = parse_input("fact: (inst ?X Peg)")
+        for i in range(len(self.kb.kb_ask(peg_query))):
+            index = i + 1
+            current_state = []
+            disk_query = parse_input("fact: (on ?X peg%d)" % index)
+            answer = self.kb.kb_ask(disk_query)
+            # list of bindings
+            if answer:
+                # answer found
+                for j in answer:
+                    # iterate through list of bindings for value
+                    # print(j['?X'][-1])
+                    current_state.append(int(j['?X'][-1]))
+            state.append(tuple(sorted(current_state)))
+        # print("Returning State: ", state)
+        return tuple(state)
 
     def makeMove(self, movable_statement):
         """
@@ -53,7 +71,40 @@ class TowerOfHanoiGame(GameMaster):
             None
         """
         ### Student code goes here
-        pass
+        (disk, old_peg, new_peg) = movable_statement.terms
+        # print(disk, old_peg, new_peg)
+
+        # retract the fact that disk in top of old_peg
+        self.kb.kb_retract(parse_input("fact: (top %s %s)" % (disk, old_peg)))
+
+        self.kb.kb_retract(parse_input("fact: (on %s %s)" % (disk, old_peg)))
+        # get the second disk under the first disk asking onTopOf
+        ask_result = self.kb.kb_ask(parse_input("fact: (onTopOf %s ?X)" % disk))
+        if ask_result:
+            # should only have one binding
+            # remove that fact of this disk being onTopOf the other one
+            self.kb.kb_retract(parse_input("fact: (onTopOf %s %s)" % (disk, ask_result[0]['?X'])))
+            # add the fact that the second disk is now top of old_peg
+            self.kb.kb_assert(parse_input("fact: (top %s %s)" % (ask_result[0]['?X'], old_peg)))
+        else:
+            # the old peg is now empty
+            self.kb.kb_assert(parse_input("fact: (empty %s)" % old_peg))
+        # print(second_disk_old_peg)
+
+        # get the top of new_peg by asking top
+        ask_result = self.kb.kb_ask(parse_input("fact: (top ?X %s)" % new_peg))
+        if ask_result:
+            # should only have one binding
+            # retract the fact that this disk is top of new_peg
+            self.kb.kb_retract(parse_input("fact: (top %s %s)" % (ask_result[0]['?X'], new_peg)))
+            # add the fact that the disk is now onTopOf that disk
+            self.kb.kb_assert(parse_input("fact: (onTopOf %s %s)" % (disk, ask_result[0]['?X'])))
+        else:
+            # the new peg was empty, remove the fact stating that peg was empty
+            self.kb.kb_retract(parse_input("fact: (empty %s)" % new_peg))
+        # add the fact that the disk is now top of new_peg
+        self.kb.kb_assert(parse_input("fact: (top %s %s)" % (disk, new_peg)))
+        self.kb.kb_assert(parse_input("fact: (on %s %s)" % (disk, new_peg)))
 
     def reverseMove(self, movable_statement):
         """
@@ -99,8 +150,33 @@ class Puzzle8Game(GameMaster):
         Returns:
             A Tuple of Tuples that represent the game state
         """
-        ### Student code goes here
-        pass
+        ### student code goes here
+        state = []
+        # initialize a list to store all states for easier operation
+        # cast back to tuple later
+        for i in range(3):
+            # index for y
+            y = i + 1
+            current_state = []
+            for j in range(3):
+                # index for x
+                x = j + 1
+                tile_query = parse_input("fact: (pos ?X pos%d pos%d)" % (x, y))
+                answer = self.kb.kb_ask(tile_query)
+                # list of bindings
+                if answer:
+                    # answer found
+                    # should only have one binding
+                    tile_found = answer[0]['?X']
+                    if tile_found == 'empty':
+                        current_state.append(-1)
+                    else:
+                        current_state.append(int(tile_found[-1]))
+                else:
+                    print("I'm pretty sure something was not right")
+            state.append(tuple(current_state))
+        # print("Returning State: ", state)
+        return tuple(state)
 
     def makeMove(self, movable_statement):
         """
@@ -119,7 +195,17 @@ class Puzzle8Game(GameMaster):
             None
         """
         ### Student code goes here
-        pass
+        (tile, old_x, old_y, new_x, new_y) = movable_statement.terms
+
+        # remove the fact that the old position had tile
+        self.kb.kb_retract(parse_input("fact: (pos %s %s %s)" % (tile, old_x, old_y)))
+        # add the fact that the old position is empty
+        self.kb.kb_add(parse_input("fact: (pos empty %s %s)" % (old_x, old_y)))
+        # remove the fact that the new position was empty
+        self.kb.kb_retract(parse_input("fact: (pos empty %s %s)" % (new_x, new_y)))
+        # add the fact that the new position has tile
+        self.kb.kb_add(parse_input("fact: (pos %s %s %s)" % (tile, new_x, new_y)))
+
 
     def reverseMove(self, movable_statement):
         """
